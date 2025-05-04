@@ -34,6 +34,10 @@ class ProjectBoard extends Page
     public Collection $ticketStatuses;
     public ?Ticket $selectedTicket = null;
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'رؤساء المكاتب']);
+    }
     public function mount(): void
     {
         if (auth()->user()->hasRole(['super_admin'])) {

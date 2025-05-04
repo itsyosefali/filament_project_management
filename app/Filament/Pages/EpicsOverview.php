@@ -30,11 +30,11 @@ class EpicsOverview extends Page
     public function mount(): void
     {
         $this->loadAvailableProjects();
-        
+
         if ($this->availableProjects->isNotEmpty() && !$this->selectedProjectId) {
             $this->selectedProjectId = $this->availableProjects->first()->id;
         }
-        
+
         $this->loadEpics();
         $this->expandedEpics = $this->epics->pluck('id')->toArray();
     }
@@ -42,7 +42,7 @@ class EpicsOverview extends Page
     public function loadAvailableProjects(): void
     {
         $user = auth()->user();
-        
+
         if ($user->hasRole('super_admin')) {
             $this->availableProjects = Project::orderBy('name')->get();
         } else {
@@ -53,17 +53,17 @@ class EpicsOverview extends Page
     public function loadEpics(): void
     {
         $query = Epic::with([
-            'project', 
+            'project',
             'tickets' => function ($query) {
                 $query->with(['status', 'assignee']);
             }
         ])
         ->orderBy('start_date', 'asc');
-        
+
         if ($this->selectedProjectId) {
             $query->where('project_id', $this->selectedProjectId);
         }
-        
+
         $this->epics = $query->get();
     }
 
@@ -80,7 +80,7 @@ class EpicsOverview extends Page
     {
         return in_array($epicId, $this->expandedEpics);
     }
-    
+
     public function form(Form $form): Form
     {
         return $form
@@ -94,7 +94,7 @@ class EpicsOverview extends Page
                     }),
             ]);
     }
-    
+
     #[On('epic-created')]
     #[On('epic-updated')]
     #[On('epic-deleted')]
@@ -104,13 +104,18 @@ class EpicsOverview extends Page
     public function refreshEpics(): void
     {
         $this->loadEpics();
-        
+
         $currentEpicIds = $this->epics->pluck('id')->toArray();
         $this->expandedEpics = array_intersect($this->expandedEpics, $currentEpicIds);
-        
+
         Notification::make()
             ->title('Data refreshed')
             ->success()
             ->send();
+    }
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasAnyRole(['super_admin', 'رؤساء المكاتب']);
     }
 }

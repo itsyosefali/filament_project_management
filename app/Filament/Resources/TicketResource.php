@@ -27,28 +27,31 @@ class TicketResource extends Resource
 
     protected static ?string $navigationLabel = 'Tickets';
     protected static ?string $navigationGroup = 'Project Management';
-    
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-        
-        if (!auth()->user()->hasRole(['super_admin'])) {
-            $query->where(function ($query) {
-                $query->where('user_id', auth()->id())
-                    ->orWhereHas('project.members', function ($query) {
-                        $query->where('users.id', auth()->id());
-                    });
-            });
+        $user = auth()->user();
+        if (!$user->can('view_any_ticket')) {
+            return $query->where('user_id', $user->id);
         }
-        
-        return $query;
+        if ($user->hasRole('super_admin')) {
+            return $query;
+        }
+        return $query->where(function ($query) use ($user) {
+            $query->where('user_id', $user->id)
+                  ->orWhereHas('project.members', function ($query) use ($user) {
+                      $query->where('users.id', $user->id);
+                  });
+        });
     }
+
 
     public static function form(Form $form): Form
     {
         $projectId = request()->query('project_id') ?? request()->input('project_id');
         $statusId = request()->query('ticket_status_id') ?? request()->input('ticket_status_id');
-        
+
         return $form
             ->schema([
                 Forms\Components\Select::make('project_id')
@@ -57,7 +60,7 @@ class TicketResource extends Resource
                         if (auth()->user()->hasRole(['super_admin'])) {
                             return Project::pluck('name', 'id')->toArray();
                         }
-                        
+
                         return auth()->user()->projects()->pluck('name', 'projects.id')->toArray();
                     })
                     ->default($projectId)
@@ -69,13 +72,13 @@ class TicketResource extends Resource
                         $set('ticket_status_id', null);
                         $set('user_id', null);
                     }),
-                    
+
                 Forms\Components\Select::make('ticket_status_id')
                     ->label('Status')
                     ->options(function ($get) {
                         $projectId = $get('project_id');
                         if (!$projectId) return [];
-                        
+
                         return TicketStatus::where('project_id', $projectId)
                             ->pluck('name', 'id')
                             ->toArray();
@@ -84,23 +87,23 @@ class TicketResource extends Resource
                     ->required()
                     ->searchable()
                     ->preload(),
-                    
+
                 Forms\Components\TextInput::make('name')
                     ->label('Ticket Name')
                     ->required()
                     ->maxLength(255),
-                    
+
                 Forms\Components\RichEditor::make('description')
                     ->label('Description')
                     ->fileAttachmentsDirectory('attachments')
                     ->columnSpanFull(),
-                    
+
                 Forms\Components\Select::make('user_id')
                     ->label('Assignee')
                     ->options(function ($get) {
                         $projectId = $get('project_id');
                         if (!$projectId) return [];
-                        
+
                         $project = Project::find($projectId);
                         if (!$project) return [];
                         return $project->members()
@@ -113,7 +116,7 @@ class TicketResource extends Resource
                     })
                     ->required()
                     ->helperText('Only project members can be assigned to tickets'),
-                    
+
                 Forms\Components\DatePicker::make('due_date')
                     ->label('Due Date')
                     ->nullable(),
@@ -128,12 +131,12 @@ class TicketResource extends Resource
                     ->label('Ticket ID')
                     ->searchable()
                     ->copyable(),
-                    
+
                 Tables\Columns\TextColumn::make('project.name')
                     ->label('Project')
                     ->sortable()
                     ->searchable(),
-                    
+
                 Tables\Columns\TextColumn::make('status.name')
                     ->label('Status')
                     ->badge()
@@ -145,22 +148,22 @@ class TicketResource extends Resource
                         default => 'gray',
                     })
                     ->sortable(),
-                    
+
                 Tables\Columns\TextColumn::make('name')
                     ->label('Name')
                     ->searchable()
                     ->limit(30),
-                    
+
                 Tables\Columns\TextColumn::make('assignee.name')
                     ->label('Assignee')
                     ->sortable()
                     ->searchable(),
-                    
+
                 Tables\Columns\TextColumn::make('due_date')
                     ->label('Due Date')
                     ->date()
                     ->sortable(),
-                    
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -173,24 +176,24 @@ class TicketResource extends Resource
                         if (auth()->user()->hasRole(['super_admin'])) {
                             return Project::pluck('name', 'id')->toArray();
                         }
-                        
+
                         return auth()->user()->projects()->pluck('name', 'projects.id')->toArray();
                     })
                     ->searchable()
                     ->preload(),
-                    
+
                 Tables\Filters\SelectFilter::make('status')
                     ->label('Status')
                     ->relationship('status', 'name')
                     ->searchable()
                     ->preload(),
-                    
+
                 Tables\Filters\SelectFilter::make('user_id')
                     ->label('Assignee')
                     ->relationship('assignee', 'name')
                     ->searchable()
                     ->preload(),
-                    
+
                 Tables\Filters\Filter::make('due_date')
                     ->form([
                         Forms\Components\DatePicker::make('due_from'),
@@ -225,7 +228,7 @@ class TicketResource extends Resource
                                 ->options(function () {
                                     $firstTicket = Ticket::find(request('records')[0] ?? null);
                                     if (!$firstTicket) return [];
-                                    
+
                                     return TicketStatus::where('project_id', $firstTicket->project_id)
                                         ->pluck('name', 'id')
                                         ->toArray();
@@ -246,7 +249,7 @@ class TicketResource extends Resource
     public static function getRelations(): array
     {
         return [
-           
+
         ];
     }
 
@@ -259,7 +262,7 @@ class TicketResource extends Resource
             'view' => Pages\ViewTicket::route('/{record}'),
         ];
     }
-    
+
     public static function getNavigationBadge(): ?string
     {
         $query = static::getEloquentQuery();

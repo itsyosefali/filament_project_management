@@ -13,17 +13,21 @@ class TicketPolicy
     /**
      * Determine whether the user can view any models.
      */
-    public function viewAny(User $user): bool
+    public function viewany(User $user): \Illuminate\Database\Eloquent\Builder
     {
-        return $user->can('view_any_ticket');
+        // Return query builder instead of boolean
+        return Ticket::query()->where('user_id', $user->id)
+            ->orWhereHas('project.members', fn($q) => $q->where('users.id', $user->id));
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Ticket $ticket): bool
+    public function view(User $user): \Illuminate\Database\Eloquent\Builder
     {
-        return $user->can('view_ticket');
+        // Return query builder instead of boolean
+        return Ticket::query()->where('user_id', $user->id)
+            ->orWhereHas('project.members', fn($q) => $q->where('users.id', $user->id));
     }
 
     /**

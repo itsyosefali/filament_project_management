@@ -96,12 +96,12 @@ class ProjectResource extends Resource
             'edit' => Pages\EditProject::route('/{record}/edit')
         ];
     }
-    
+
     // Add this method to show all projects for super_admin, but only member projects for regular users
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-        
+
         // Check if the current user has the super_admin role
         // Adjust this condition based on how you check for roles in your application
         $userIsSuperAdmin = auth()->user() && (
@@ -110,14 +110,21 @@ class ProjectResource extends Resource
             // Or if using a simple role column
             || (isset(auth()->user()->role) && auth()->user()->role === 'super_admin')
         );
-        
-        if (!$userIsSuperAdmin) {
+        // if the user is رؤساء المكاتب he can see hes projects
+        $userIsChief = auth()->user() && (
+            // If using Spatie Permission package
+            (method_exists(auth()->user(), 'hasRole') && auth()->user()->hasRole('رؤساء المكاتب'))
+            // Or if using a simple role column
+            || (isset(auth()->user()->role) && auth()->user()->role === 'رؤساء المكاتب')
+        );
+
+        if (!$userIsSuperAdmin && !$userIsChief) {
             // If not a super_admin, only show projects where user is a member
             $query->whereHas('members', function (Builder $query) {
                 $query->where('user_id', auth()->id());
             });
         }
-        
+
         return $query;
     }
 }
