@@ -14,18 +14,28 @@ class UserCreatedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public User $user;
+    public string $password;
+
     /**
      * Create a new message instance.
      */
-    public function __construct(public User $user) // 👈 Use App\Models\User
+    public function __construct(User $user, string $password)
     {
-        //
+        $this->user = $user;
+        $this->password = $password;
     }
+
     public function build()
     {
         return $this->markdown('emails.user-created')
-            ->subject('Welcome to Our Platform');
+            ->subject('Welcome to Our Platform')
+            ->with([
+                'user' => $this->user,
+                'password' => $this->password,
+            ]);
     }
+
     /**
      * Get the message envelope.
      */
